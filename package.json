@@ -1,0 +1,16 @@
+{
+  "name": "hc-net-sdk-node-js",
+  "version": "1.0.0",
+  "description": "This repository is a HCNetSDK Node.js application for use the PTZ control",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "ffi-napi": "^4.0.3",
+    "ref-napi": "^3.0.3",
+    "express": "^4.19.2"
+  },
+  "author": "Noam148",
+  "license": "ISC"
+}

@@ -1,4 +1,5 @@
 const koffi = require('koffi');
+const express = require('express');
 
 const HCNetSDK = koffi.load('./lib/libhcnetsdk.so');
 const HCNetSDKInit = HCNetSDK.func('NET_DVR_Init', 'bool', []);
@@ -10,7 +11,6 @@ const PTZ_DOWN = 22;
 const PTZ_LEFT = 23;
 const PTZ_RIGHT = 24;
 
-const express = require('express');
 const app = express();
 app.use(express.json());
 const port = 3000;

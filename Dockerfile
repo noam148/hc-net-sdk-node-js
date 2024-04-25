@@ -2,6 +2,7 @@ FROM --platform=linux/amd64 ubuntu:noble
 
 RUN apt update && apt install -y \
     npm \
+    cmake \
     nano \
     && rm -rf /var/lib/apt/lists/*
 

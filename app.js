@@ -1,24 +1,14 @@
-const ffi = require('ffi-napi');
-const ref = require('ref-napi');
+const koffi = require('koffi');
 
-const HCNetSDK = ffi.Library('./lib/libhcnetsdk', {
-    'NET_DVR_Init': ['bool', []],
-    'NET_DVR_Cleanup': ['bool', []],
-    'NET_DVR_Login_V30': ['long', ['pointer', 'long', 'pointer', 'pointer', 'pointer']],
-    'NET_DVR_Logout': ['bool', ['long']],
-    'NET_DVR_PTZControl': ['bool', ['long', 'uint', 'uint']],
-    'NET_DVR_PTZControl_Other': ['bool', ['long', 'long', 'uint', 'uint']],
-    'NET_DVR_GetLastError': ['int', []],
-    // Add other required functions here
-});
+const HCNetSDK = koffi.load('./lib/libhcnetsdk.so');
+const HCNetSDKInit = HCNetSDK.func('NET_DVR_Init', 'bool', []);
+const HCNetSDKLogin = HCNetSDK.func('NET_DVR_Login_V30', 'long', ['str', 'int', 'str', 'str']);
+const HCNetSDKPTZControlOther = HCNetSDK.func('NET_DVR_PTZControl_Other', 'bool', ['long', 'long', 'uint', 'uint']);
 
-const NET_DVR_DEVICEINFO_V30 = ref.types.void;
 const PTZ_UP = 21;
 const PTZ_DOWN = 22;
 const PTZ_LEFT = 23;
 const PTZ_RIGHT = 24;
-
-const deviceInfo = ref.alloc(NET_DVR_DEVICEINFO_V30);
 
 const express = require('express');
 const app = express();
@@ -62,24 +52,21 @@ app.get('/ptz-control/:direction', async (req, res) => {
         });
     }
 
-    try {
-        await HCNetSDK.NET_DVR_Init();
-    } catch (e) {
-        console.log('NET_DVR_Init failed, error code:', e);
+    const initResult = HCNetSDKInit()
+    if(!initResult){
+        res.status(500);
+        return res.send({
+            'success': false,
+            'message': 'HCNetSDK.NET_DVR_Init failed',
+        });
     }
 
-    let userID = -1;
-    try {
-        userID = await HCNetSDK.NET_DVR_Login_V30(
-            deviceCredential.ip,
-            deviceCredential.port,
-            deviceCredential.username,
-            deviceCredential.password,
-            deviceInfo,
-        );
-    } catch (e) {
-        console.log('NET_DVR_Login_V30 failed, error code:', e);
-    }
+    let userID = HCNetSDKLogin(
+        deviceCredential.ip,
+        deviceCredential.port,
+        deviceCredential.username,
+        deviceCredential.password,
+    );
 
     if (userID === -1 || userID === 4294967295) {
         res.status(401);
@@ -89,21 +76,17 @@ app.get('/ptz-control/:direction', async (req, res) => {
         });
     }
 
-    try {
-        await HCNetSDK.NET_DVR_PTZControl_Other(userID, deviceCredential.channel, PTZ_DIRECTION, 0);
-    } catch (e) {
-        console.log('NET_DVR_PTZControl_Other failed, error code:', e);
+    const ptzControlResult = HCNetSDKPTZControlOther(userID, deviceCredential.channel, PTZ_DIRECTION, 0);
+    if(ptzControlResult){
+        setTimeout(function() {
+            HCNetSDKPTZControlOther(userID, deviceCredential.channel, PTZ_DIRECTION, 1)
+        }, 500);
     }
-    setTimeout(function() {
-        if (!HCNetSDK.NET_DVR_PTZControl_Other(userID, deviceCredential.channel, PTZ_DIRECTION, 1)) {
-            console.log('Stop command failed, error code:', HCNetSDK.NET_DVR_GetLastError());
-        }
-    }, 500);
     res.send({ 'success': true });
-});
+})
 
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
+    console.log(`HCNetSDK app listening on port ${port}`);
 });
 
 function getDeviceCredential(query) {
@@ -116,11 +99,11 @@ function getDeviceCredential(query) {
         return false;
     }
     return {
-        ip: Buffer.from(query.ip + '\0', 'ascii'),
+        ip: query.ip,
         port: Number(query.port),
         channel: Number(query.channel),
-        username: Buffer.from(query.username + '\0', 'ascii'),
-        password: Buffer.from(query.password + '\0', 'ascii'),
+        username: query.username,
+        password: query.password,
     };
 
 }
